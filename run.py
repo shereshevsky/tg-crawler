@@ -1,3 +1,6 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import loguru
 import asyncio
 import configparser
@@ -34,16 +37,20 @@ async def main():
             if channel.id in disabled_channels:
                 continue
 
-            max_id = data_layer.get_max_id(channel.id)
-            logger.debug(f"Max id for channel {channel.id} is {max_id}")
             data_layer.save_channel(channel.id, search_phrase, channel)
+            max_id = current_max_id = data_layer.get_last_id(channel.id)
+            logger.debug(f"Max id for channel {channel.id} is {max_id}")
 
             cnt = 0
             for message in await crawler.fetch_messages(channel.id, max_id):
                 cnt += 1
                 # await crawler.download_media(channel.id, message)
                 data_layer.save_message(channel.id, message)
+                current_max_id = max(current_max_id, message.id)
+
             logger.debug(f"Saved {cnt} messages for channel {channel.id}")
+            if cnt > 0 and current_max_id > max_id:
+                data_layer.set_last_id(channel.id, current_max_id)
 
     await crawler.close()
     data_layer.close()
